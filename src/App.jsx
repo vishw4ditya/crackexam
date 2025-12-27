@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { Search, Plus, BookOpen, LogOut, GraduationCap, School, Layers, Calendar, Trash2, X, ExternalLink, Download, FileText, FileUp, AlertCircle, Target, Zap, ShieldCheck, ArrowRight, User, Instagram, Twitter, Linkedin, Facebook, Mail, MapPin, Github } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000';
+// Use dynamic API URL: empty string in production (same domain), localhost in development
+const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
 
 // --- Components ---
 
@@ -130,7 +131,7 @@ const Modal = ({ isOpen, onClose, paper }) => {
             <Target className="w-96 h-96 text-indigo-900 rotate-12" />
           </div>
           <iframe 
-            src={`${paper.content}#view=FitH&toolbar=0`} 
+            src={`${paper.content.startsWith('/') ? API_BASE_URL + paper.content : paper.content}#view=FitH&toolbar=0`} 
             className="w-full h-full border-none relative z-10"
             title={paper.fileName || 'PDF Document'}
           />
