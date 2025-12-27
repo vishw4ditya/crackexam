@@ -100,7 +100,6 @@ const Footer = () => (
 );
 
 const Modal = ({ isOpen, onClose, paper }) => {
-  const [isFocused, setIsFocused] = useState(true);
   const [pdfError, setPdfError] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
   const iframeRef = useRef(null);
@@ -146,143 +145,12 @@ const Modal = ({ isOpen, onClose, paper }) => {
     }
   }, [isOpen, paper]);
 
-  useEffect(() => {
-    if (isOpen) {
-      const handleBlur = () => setIsFocused(false);
-      const handleFocus = () => setIsFocused(true);
-      
-      const preventDefaults = (e) => {
-        // Prevent Right Click
-        if (e.type === 'contextmenu') {
-          e.preventDefault();
-          e.stopPropagation();
-          return false;
-        }
-        
-        // Prevent Print, Save, Copy, Inspect, and other shortcuts
-        if (e.ctrlKey || e.metaKey) {
-          const blockedKeys = ['p', 's', 'u', 'c', 'a', 'i', 'j', 'k', 'o'];
-          if (blockedKeys.includes(e.key.toLowerCase())) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            return false;
-          }
-        }
-        
-        // Prevent PrintScreen and F12 (DevTools)
-        if (e.key === 'PrintScreen' || e.key === 'F12') {
-          e.preventDefault();
-          e.stopPropagation();
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText('Screenshots and downloads are disabled for security.');
-          }
-          return false;
-        }
-        
-        // Prevent Alt+Tab detection (when window loses focus)
-        if (e.altKey && e.key === 'Tab') {
-          setIsFocused(false);
-        }
-      };
-
-      // Prevent text selection
-      const preventSelect = (e) => {
-        e.preventDefault();
-        return false;
-      };
-
-      // Detect screenshot attempts via clipboard
-      const handleCopy = (e) => {
-        e.preventDefault();
-        e.clipboardData.setData('text/plain', 'Content copying is disabled for security.');
-        return false;
-      };
-
-      // Mobile-specific: Prevent long-press context menu
-      const handleTouchStart = (e) => {
-        if (e.touches.length > 1) {
-          e.preventDefault(); // Prevent pinch zoom
-        }
-      };
-
-      const handleTouchMove = (e) => {
-        if (e.touches.length > 1) {
-          e.preventDefault(); // Prevent pinch zoom
-        }
-      };
-
-      // Prevent mobile screenshot gestures
-      const handleVisibilityChange = () => {
-        if (document.hidden) {
-          setIsFocused(false);
-        } else {
-          setIsFocused(true);
-        }
-      };
-
-      window.addEventListener('blur', handleBlur);
-      window.addEventListener('focus', handleFocus);
-      window.addEventListener('contextmenu', preventDefaults, true);
-      window.addEventListener('keydown', preventDefaults, true);
-      window.addEventListener('keyup', preventDefaults, true);
-      document.addEventListener('selectstart', preventSelect);
-      document.addEventListener('copy', handleCopy, true);
-      document.addEventListener('cut', handleCopy, true);
-      document.addEventListener('touchstart', handleTouchStart, { passive: false });
-      document.addEventListener('touchmove', handleTouchMove, { passive: false });
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      
-      return () => {
-        window.removeEventListener('blur', handleBlur);
-        window.removeEventListener('focus', handleFocus);
-        window.removeEventListener('contextmenu', preventDefaults, true);
-        window.removeEventListener('keydown', preventDefaults, true);
-        window.removeEventListener('keyup', preventDefaults, true);
-        document.removeEventListener('selectstart', preventSelect);
-        document.removeEventListener('copy', handleCopy, true);
-        document.removeEventListener('cut', handleCopy, true);
-        document.removeEventListener('touchstart', handleTouchStart);
-        document.removeEventListener('touchmove', handleTouchMove);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-      };
-    }
-  }, [isOpen]);
 
   if (!isOpen || !paper) return null;
 
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300 select-none ${!isFocused ? 'brightness-50 grayscale' : ''}`}>
-      <div className={`bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[98vh] sm:h-[95vh] relative transition-all duration-500 ${!isFocused ? 'blur-2xl scale-95 opacity-50' : ''}`}>
-        
-        {/* Anti-Screenshot Overlay message when blurred */}
-        {!isFocused && (
-          <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none">
-            <div className="bg-slate-900/80 text-white px-10 py-5 rounded-3xl font-black uppercase tracking-widest text-sm backdrop-blur-md border border-white/10 shadow-2xl">
-              Content Hidden for Security
-            </div>
-          </div>
-        )}
-
-        {/* Anti-Screenshot Watermark Layers */}
-        <div className="absolute inset-0 z-[60] pointer-events-none overflow-hidden opacity-[0.03] sm:opacity-[0.04] flex items-center justify-center">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 sm:gap-20 -rotate-12 scale-100 sm:scale-150">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="text-lg sm:text-4xl font-black whitespace-nowrap uppercase tracking-[0.3em] sm:tracking-[0.5em] text-slate-400">
-                CrackExam Protected • {new Date().toLocaleDateString()} • View Only
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="absolute inset-0 z-[61] pointer-events-none overflow-hidden opacity-[0.015] sm:opacity-[0.02] flex items-center justify-center">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-16 sm:gap-32 rotate-12 scale-75 sm:scale-125">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="text-base sm:text-3xl font-black whitespace-nowrap uppercase tracking-[0.2em] sm:tracking-[0.4em] text-indigo-300">
-                No Download • No Screenshot • Secure View
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[98vh] sm:h-[95vh] relative transition-all duration-500">
 
         <div className="p-4 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white shrink-0 relative z-[70]">
           <div className="flex items-center space-x-3 sm:space-x-5 flex-1 min-w-0">
@@ -338,16 +206,28 @@ const Modal = ({ isOpen, onClose, paper }) => {
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] z-0">
             <Target className="w-96 h-96 text-indigo-900 rotate-12" />
           </div>
-          
-          {/* Transparent click-blocker to prevent right-click on PDF internal UI */}
-          <div className="absolute inset-0 z-50 bg-transparent" onContextMenu={(e) => e.preventDefault()}></div>
 
           {pdfError ? (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white">
               <div className="text-center p-10">
                 <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
                 <p className="text-slate-500 font-bold text-sm uppercase tracking-widest mb-2">PDF Loading Error</p>
-                <p className="text-slate-400 text-xs">Unable to display the document. Please try again.</p>
+                <p className="text-slate-400 text-xs mb-4">Unable to display the document in viewer.</p>
+                <a
+                  href={(() => {
+                    let pdfUrl = paper.content;
+                    if (pdfUrl.startsWith('/')) {
+                      const baseUrl = API_BASE_URL || window.location.origin;
+                      pdfUrl = baseUrl + pdfUrl;
+                    }
+                    return pdfUrl;
+                  })()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors"
+                >
+                  Open PDF in New Tab
+                </a>
               </div>
             </div>
           ) : (
@@ -357,54 +237,39 @@ const Modal = ({ isOpen, onClose, paper }) => {
                 src={(() => {
                   let pdfUrl = paper.content;
                   
-                  // Handle both relative paths and full URLs
+                  // Ensure we have a full absolute URL for mobile compatibility
                   if (pdfUrl.startsWith('/')) {
                     const baseUrl = API_BASE_URL || window.location.origin;
                     pdfUrl = baseUrl + pdfUrl;
                   }
                   
-                  // Ensure URL is properly encoded for mobile browsers
-                  try {
-                    // Add PDF viewer parameters
-                    const urlObj = new URL(pdfUrl);
-                    urlObj.hash = 'toolbar=0&navpanes=0&scrollbar=1&view=FitV&zoom=page-width&page=1';
-                    return urlObj.toString();
-                  } catch (e) {
-                    // Fallback if URL parsing fails
-                    return `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitV&zoom=page-width&page=1`;
+                  // Detect mobile devices
+                  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                  
+                  // On mobile, use simpler URL without hash parameters (they can cause issues)
+                  if (isMobile) {
+                    return pdfUrl;
                   }
+                  
+                  // Desktop: Return URL with PDF viewer parameters
+                  return `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitV&zoom=page-width&page=1`;
                 })()}
                 className="w-full h-full border-none relative z-10 pointer-events-auto"
                 title={paper.fileName || 'PDF Document'}
                 style={{ 
-                  userSelect: 'none', 
-                  WebkitUserSelect: 'none',
                   touchAction: 'pan-x pan-y pinch-zoom',
                   minHeight: '100%',
-                  minWidth: '100%'
+                  minWidth: '100%',
+                  display: 'block'
                 }}
                 allow="fullscreen"
-                loading="lazy"
+                allowFullScreen
                 onError={(e) => {
                   console.error('PDF iframe error for:', paper.content, e);
                   setPdfError(true);
                 }}
                 onLoad={() => {
                   setPdfError(false);
-                  // Auto-adjust PDF view on load
-                  setTimeout(() => {
-                    try {
-                      if (iframeRef.current?.contentWindow) {
-                        // Auto-fit to page width
-                        iframeRef.current.contentWindow.postMessage({
-                          type: 'zoom',
-                          value: 'page-width'
-                        }, '*');
-                      }
-                    } catch (err) {
-                      // Silently handle cross-origin restrictions
-                    }
-                  }, 800);
                 }}
               />
             </div>

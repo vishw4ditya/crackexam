@@ -99,13 +99,14 @@ app.get('/api/pdf', async (req, res) => {
         return res.status(404).send('PDF not found');
       }
 
-      // Set proper headers for PDF viewing (no download allowed)
+      // Set proper headers for PDF viewing (mobile compatible)
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET');
+      res.setHeader('Accept-Ranges', 'bytes');
       
       // Pipe the response
       cloudinaryRes.pipe(res);
