@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
+import https from 'https';
+import http from 'http';
 
 dotenv.config();
 
@@ -68,7 +70,50 @@ const upload = multer({
   }
 });
 
+// Serve PDF from Cloudinary with proper headers
+app.get('/api/pdf/:publicId', async (req, res) => {
+  try {
+    const { publicId } = req.params;
+    const decodedPublicId = decodeURIComponent(publicId);
+    
+    // Generate Cloudinary URL
+    const pdfUrl = cloudinary.url(decodedPublicId, {
+      resource_type: 'raw',
+      secure: true
+    });
+
+    // Parse URL to determine protocol
+    const urlObj = new URL(pdfUrl);
+    const client = urlObj.protocol === 'https:' ? https : http;
+
+    // Stream PDF from Cloudinary to client
+    client.get(pdfUrl, (cloudinaryRes) => {
+      if (cloudinaryRes.statusCode !== 200) {
+        return res.status(404).send('PDF not found');
+      }
+
+      // Set proper headers for PDF viewing (no download allowed)
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET');
+      
+      // Pipe the response
+      cloudinaryRes.pipe(res);
+    }).on('error', (error) => {
+      console.error('Error fetching PDF from Cloudinary:', error);
+      res.status(500).json({ error: 'Failed to load PDF' });
+    });
+  } catch (error) {
+    console.error('Error serving PDF:', error);
+    res.status(500).json({ error: 'Failed to load PDF' });
+  }
+});
+
 // API Endpoints
+
 app.get('/api/papers', async (req, res) => {
   try {
     const papers = await Paper.find().sort({ createdAt: -1 });
@@ -81,7 +126,7 @@ app.get('/api/papers', async (req, res) => {
       subject: p.subject,
       year: p.year,
       fileName: p.fileName,
-      content: p.content
+      content: p.cloudinaryPublicId ? `/api/pdf/${encodeURIComponent(p.cloudinaryPublicId)}` : p.content
     }));
     res.json(transformed);
   } catch (error) {
