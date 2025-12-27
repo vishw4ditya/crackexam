@@ -137,7 +137,7 @@ const Modal = ({ isOpen, onClose, paper }) => {
 
   return (
     <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300 select-none ${!isFocused ? 'brightness-50 grayscale' : ''}`}>
-      <div className={`bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20 flex flex-col h-[90vh] relative transition-all duration-500 ${!isFocused ? 'blur-2xl scale-95 opacity-50' : ''}`}>
+      <div className={`bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[90vh] relative transition-all duration-500 ${!isFocused ? 'blur-2xl scale-95 opacity-50' : ''}`}>
         
         {/* Anti-Screenshot Overlay message when blurred */}
         {!isFocused && (
