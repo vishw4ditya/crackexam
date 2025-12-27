@@ -100,12 +100,66 @@ const Footer = () => (
 );
 
 const Modal = ({ isOpen, onClose, paper }) => {
+  const [isFocused, setIsFocused] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      const handleBlur = () => setIsFocused(false);
+      const handleFocus = () => setIsFocused(true);
+      
+      const preventDefaults = (e) => {
+        if (e.type === 'contextmenu') e.preventDefault();
+        if (e.ctrlKey && (e.key === 'p' || e.key === 's' || e.key === 'u' || e.key === 'c')) {
+          e.preventDefault();
+          return false;
+        }
+        if (e.key === 'PrintScreen') {
+          navigator.clipboard.writeText('Screenshots are disabled');
+          return false;
+        }
+      };
+
+      window.addEventListener('blur', handleBlur);
+      window.addEventListener('focus', handleFocus);
+      window.addEventListener('contextmenu', preventDefaults);
+      window.addEventListener('keydown', preventDefaults);
+      
+      return () => {
+        window.removeEventListener('blur', handleBlur);
+        window.removeEventListener('focus', handleFocus);
+        window.removeEventListener('contextmenu', preventDefaults);
+        window.removeEventListener('keydown', preventDefaults);
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen || !paper) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20 flex flex-col h-[90vh]">
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300 select-none ${!isFocused ? 'brightness-50 grayscale' : ''}`}>
+      <div className={`bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20 flex flex-col h-[90vh] relative transition-all duration-500 ${!isFocused ? 'blur-2xl scale-95 opacity-50' : ''}`}>
+        
+        {/* Anti-Screenshot Overlay message when blurred */}
+        {!isFocused && (
+          <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none">
+            <div className="bg-slate-900/80 text-white px-10 py-5 rounded-3xl font-black uppercase tracking-widest text-sm backdrop-blur-md border border-white/10 shadow-2xl">
+              Content Hidden for Security
+            </div>
+          </div>
+        )}
+
+        {/* Anti-Screenshot Watermark Layer */}
+        <div className="absolute inset-0 z-[60] pointer-events-none overflow-hidden opacity-[0.03] flex items-center justify-center">
+          <div className="grid grid-cols-4 gap-20 -rotate-12 scale-150">
+            {Array.from({ length: 16 }).map((_, i) => (
+              <div key={i} className="text-4xl font-black whitespace-nowrap uppercase tracking-[0.5em]">
+                CrackExam Protected • {new Date().toLocaleDateString()}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white shrink-0 relative z-[70]">
           <div className="flex items-center space-x-5">
             <div className="bg-red-500 p-3 rounded-2xl shadow-xl shadow-red-100 ring-4 ring-red-50">
               <FileText className="h-7 w-7 text-white" />
@@ -126,13 +180,17 @@ const Modal = ({ isOpen, onClose, paper }) => {
           </button>
         </div>
         
-        <div className="flex-grow bg-slate-50 relative overflow-hidden">
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
+        <div className="flex-grow bg-slate-50 relative overflow-hidden group/viewer">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] z-0">
             <Target className="w-96 h-96 text-indigo-900 rotate-12" />
           </div>
+          
+          {/* Transparent click-blocker to prevent right-click on PDF internal UI */}
+          <div className="absolute inset-0 z-50 bg-transparent" onContextMenu={(e) => e.preventDefault()}></div>
+
           <iframe 
-            src={`${paper.content.startsWith('/') ? API_BASE_URL + paper.content : paper.content}#view=FitH&toolbar=0`} 
-            className="w-full h-full border-none relative z-10"
+            src={`${paper.content.startsWith('/') ? API_BASE_URL + paper.content : paper.content}#view=FitH&toolbar=0&navpanes=0`} 
+            className="w-full h-full border-none relative z-10 pointer-events-auto"
             title={paper.fileName || 'PDF Document'}
           />
         </div>

@@ -4,18 +4,50 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-// Serve static files from the 'dist' directory (Vite build output)
+// Cloudinary Configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// MongoDB Connection
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Paper Schema
+const paperSchema = new mongoose.Schema({
+  college: String,
+  degree: String,
+  stream: String,
+  subject: String,
+  year: String,
+  fileName: String,
+  content: String, // Cloudinary URL
+  cloudinaryPublicId: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Paper = mongoose.model('Paper', paperSchema);
+
+// Serve static files from the 'dist' directory
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
 
-// Explicitly handle root path to serve index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
@@ -23,25 +55,8 @@ app.get('/', (req, res) => {
 app.use(cors());
 app.use(express.json());
 
-// Create uploads directory if it doesn't exist
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-// Serve uploaded files statically
-app.use('/uploads', express.static(uploadDir));
-
-// Configure Multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
-
+// Configure Multer for memory storage
+const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
   fileFilter: (req, file, cb) => {
@@ -53,80 +68,95 @@ const upload = multer({
   }
 });
 
-// JSON file to persist paper data
-const DATA_FILE = path.join(__dirname, 'papers.json');
-
-const getPapersData = () => {
-  if (fs.existsSync(DATA_FILE)) {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  }
-  return [
-    { id: '1', college: 'Harvard University', degree: 'B.Sc', stream: 'Computer Science', subject: 'Data Structures', year: '1', content: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', fileName: 'CS_101_2023.pdf' },
-    { id: '2', college: 'Stanford University', degree: 'M.Tech', stream: 'Artificial Intelligence', subject: 'Neural Networks', year: '2', content: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', fileName: 'AI_Advanced_2024.pdf' },
-    { id: '3', college: 'MIT', degree: 'B.E', stream: 'Electronics', subject: 'Digital Circuits', year: '3', content: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', fileName: 'Digital_Logic_2022.pdf' }
-  ];
-};
-
-const savePapersData = (data) => {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-};
-
 // API Endpoints
-app.get('/api/papers', (req, res) => {
-  const data = getPapersData();
-  res.json(data);
-});
-
-app.post('/api/papers', upload.single('pdf'), (req, res) => {
+app.get('/api/papers', async (req, res) => {
   try {
-    const { college, degree, stream, subject, year, content: urlContent } = req.body;
-    let paperContent = urlContent;
-    let fileName = '';
-
-    if (req.file) {
-      // In production, we use a relative path so it works on any domain
-      paperContent = `/uploads/${req.file.filename}`;
-      fileName = req.file.originalname;
-    }
-
-    const newPaper = {
-      id: Date.now().toString(),
-      college,
-      degree,
-      stream,
-      subject,
-      year,
-      content: paperContent,
-      fileName
-    };
-
-    const papers = getPapersData();
-    papers.unshift(newPaper);
-    savePapersData(papers);
-
-    res.status(201).json(newPaper);
+    const papers = await Paper.find().sort({ createdAt: -1 });
+    // Transform to match frontend expectations
+    const transformed = papers.map(p => ({
+      id: p._id,
+      college: p.college,
+      degree: p.degree,
+      stream: p.stream,
+      subject: p.subject,
+      year: p.year,
+      fileName: p.fileName,
+      content: p.content
+    }));
+    res.json(transformed);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.delete('/api/papers/:id', (req, res) => {
-  const { id } = req.params;
-  const papers = getPapersData();
-  const filtered = papers.filter(p => p.id !== id);
-  
-  // Optionally delete the physical file if it exists
-  const paper = papers.find(p => p.id === id);
-  if (paper && paper.content.includes('/uploads/')) {
-    const filename = paper.content.split('/').pop();
-    const filePath = path.join(uploadDir, filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  }
+app.post('/api/papers', upload.single('pdf'), async (req, res) => {
+  try {
+    const { college, degree, stream, subject, year } = req.body;
+    let cloudinaryUrl = '';
+    let cloudinaryPublicId = '';
+    let fileName = '';
 
-  savePapersData(filtered);
-  res.json({ success: true });
+    if (req.file) {
+      fileName = req.file.originalname;
+      
+      // Upload to Cloudinary using a Promise to handle the stream
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: 'raw', // Use 'raw' for PDF to preserve format
+            folder: 'crackexam_pdfs'
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
+
+      cloudinaryUrl = result.secure_url;
+      cloudinaryPublicId = result.public_id;
+    }
+
+    const newPaper = new Paper({
+      college,
+      degree,
+      stream,
+      subject,
+      year,
+      fileName,
+      content: cloudinaryUrl,
+      cloudinaryPublicId
+    });
+
+    await newPaper.save();
+
+    res.status(201).json({
+      ...newPaper.toObject(),
+      id: newPaper._id
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/papers/:id', async (req, res) => {
+  try {
+    const paper = await Paper.findById(req.params.id);
+    if (!paper) {
+      return res.status(404).json({ error: 'Paper not found' });
+    }
+
+    // Delete from Cloudinary if public ID exists
+    if (paper.cloudinaryPublicId) {
+      await cloudinary.uploader.destroy(paper.cloudinaryPublicId, { resource_type: 'raw' });
+    }
+
+    await Paper.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Handle client-side routing: serve index.html for all non-API routes
@@ -142,4 +172,3 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Backend Server running at http://localhost:${PORT}`);
 });
-
