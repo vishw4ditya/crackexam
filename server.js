@@ -71,9 +71,16 @@ const upload = multer({
 });
 
 // Serve PDF from Cloudinary with proper headers
-app.get('/api/pdf/:publicId', async (req, res) => {
+// Use query parameter for better mobile compatibility (handles slashes in public IDs)
+app.get('/api/pdf', async (req, res) => {
   try {
-    const { publicId } = req.params;
+    const publicId = req.query.id || req.query.publicId;
+    
+    if (!publicId) {
+      return res.status(400).json({ error: 'Public ID is required' });
+    }
+
+    // Decode the public ID (it may be URL-encoded)
     const decodedPublicId = decodeURIComponent(publicId);
     
     // Generate Cloudinary URL
@@ -112,6 +119,7 @@ app.get('/api/pdf/:publicId', async (req, res) => {
   }
 });
 
+
 // API Endpoints
 
 app.get('/api/papers', async (req, res) => {
@@ -126,7 +134,7 @@ app.get('/api/papers', async (req, res) => {
       subject: p.subject,
       year: p.year,
       fileName: p.fileName,
-      content: p.cloudinaryPublicId ? `/api/pdf/${encodeURIComponent(p.cloudinaryPublicId)}` : p.content
+      content: p.cloudinaryPublicId ? `/api/pdf?id=${encodeURIComponent(p.cloudinaryPublicId)}` : p.content
     }));
     res.json(transformed);
   } catch (error) {

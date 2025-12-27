@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
-import { Search, Plus, BookOpen, LogOut, GraduationCap, School, Layers, Calendar, Trash2, X, ExternalLink, Download, FileText, FileUp, AlertCircle, Target, Zap, ShieldCheck, ArrowRight, User, Instagram, Twitter, Linkedin, Facebook, Mail, MapPin, Github } from 'lucide-react';
+import { Search, Plus, BookOpen, LogOut, GraduationCap, School, Layers, Calendar, Trash2, X, ExternalLink, Download, FileText, FileUp, AlertCircle, Target, Zap, ShieldCheck, ArrowRight, User, Instagram, Twitter, Linkedin, Facebook, Mail, MapPin, Github, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 // Use dynamic API URL: empty string in production (same domain), localhost in development
 const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
@@ -102,12 +102,26 @@ const Footer = () => (
 const Modal = ({ isOpen, onClose, paper }) => {
   const [isFocused, setIsFocused] = useState(true);
   const [pdfError, setPdfError] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(100);
   const iframeRef = useRef(null);
 
-  // Reset error state when paper changes
+  // Reset error state and zoom when paper changes
   useEffect(() => {
     setPdfError(false);
+    setZoomLevel(100);
   }, [paper]);
+
+  const handleZoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 25, 200));
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 25, 50));
+  };
+
+  const handleZoomReset = () => {
+    setZoomLevel(100);
+  };
 
   // Auto-configure PDF view settings
   useEffect(() => {
@@ -185,6 +199,28 @@ const Modal = ({ isOpen, onClose, paper }) => {
         return false;
       };
 
+      // Mobile-specific: Prevent long-press context menu
+      const handleTouchStart = (e) => {
+        if (e.touches.length > 1) {
+          e.preventDefault(); // Prevent pinch zoom
+        }
+      };
+
+      const handleTouchMove = (e) => {
+        if (e.touches.length > 1) {
+          e.preventDefault(); // Prevent pinch zoom
+        }
+      };
+
+      // Prevent mobile screenshot gestures
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          setIsFocused(false);
+        } else {
+          setIsFocused(true);
+        }
+      };
+
       window.addEventListener('blur', handleBlur);
       window.addEventListener('focus', handleFocus);
       window.addEventListener('contextmenu', preventDefaults, true);
@@ -193,6 +229,9 @@ const Modal = ({ isOpen, onClose, paper }) => {
       document.addEventListener('selectstart', preventSelect);
       document.addEventListener('copy', handleCopy, true);
       document.addEventListener('cut', handleCopy, true);
+      document.addEventListener('touchstart', handleTouchStart, { passive: false });
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('visibilitychange', handleVisibilityChange);
       
       return () => {
         window.removeEventListener('blur', handleBlur);
@@ -203,6 +242,9 @@ const Modal = ({ isOpen, onClose, paper }) => {
         document.removeEventListener('selectstart', preventSelect);
         document.removeEventListener('copy', handleCopy, true);
         document.removeEventListener('cut', handleCopy, true);
+        document.removeEventListener('touchstart', handleTouchStart);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
   }, [isOpen]);
@@ -210,8 +252,8 @@ const Modal = ({ isOpen, onClose, paper }) => {
   if (!isOpen || !paper) return null;
 
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300 select-none ${!isFocused ? 'brightness-50 grayscale' : ''}`}>
-      <div className={`bg-white rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[95vh] relative transition-all duration-500 ${!isFocused ? 'blur-2xl scale-95 opacity-50' : ''}`}>
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300 select-none ${!isFocused ? 'brightness-50 grayscale' : ''}`}>
+      <div className={`bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[98vh] sm:h-[95vh] relative transition-all duration-500 ${!isFocused ? 'blur-2xl scale-95 opacity-50' : ''}`}>
         
         {/* Anti-Screenshot Overlay message when blurred */}
         {!isFocused && (
@@ -223,44 +265,73 @@ const Modal = ({ isOpen, onClose, paper }) => {
         )}
 
         {/* Anti-Screenshot Watermark Layers */}
-        <div className="absolute inset-0 z-[60] pointer-events-none overflow-hidden opacity-[0.04] flex items-center justify-center">
-          <div className="grid grid-cols-4 gap-20 -rotate-12 scale-150">
-            {Array.from({ length: 16 }).map((_, i) => (
-              <div key={i} className="text-4xl font-black whitespace-nowrap uppercase tracking-[0.5em] text-slate-400">
+        <div className="absolute inset-0 z-[60] pointer-events-none overflow-hidden opacity-[0.03] sm:opacity-[0.04] flex items-center justify-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 sm:gap-20 -rotate-12 scale-100 sm:scale-150">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="text-lg sm:text-4xl font-black whitespace-nowrap uppercase tracking-[0.3em] sm:tracking-[0.5em] text-slate-400">
                 CrackExam Protected • {new Date().toLocaleDateString()} • View Only
               </div>
             ))}
           </div>
         </div>
-        <div className="absolute inset-0 z-[61] pointer-events-none overflow-hidden opacity-[0.02] flex items-center justify-center">
-          <div className="grid grid-cols-3 gap-32 rotate-12 scale-125">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="text-3xl font-black whitespace-nowrap uppercase tracking-[0.4em] text-indigo-300">
+        <div className="absolute inset-0 z-[61] pointer-events-none overflow-hidden opacity-[0.015] sm:opacity-[0.02] flex items-center justify-center">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-16 sm:gap-32 rotate-12 scale-75 sm:scale-125">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="text-base sm:text-3xl font-black whitespace-nowrap uppercase tracking-[0.2em] sm:tracking-[0.4em] text-indigo-300">
                 No Download • No Screenshot • Secure View
               </div>
             ))}
           </div>
         </div>
 
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white shrink-0 relative z-[70]">
-          <div className="flex items-center space-x-5">
-            <div className="bg-red-500 p-3 rounded-2xl shadow-xl shadow-red-100 ring-4 ring-red-50">
-              <FileText className="h-7 w-7 text-white" />
+        <div className="p-4 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white shrink-0 relative z-[70]">
+          <div className="flex items-center space-x-3 sm:space-x-5 flex-1 min-w-0">
+            <div className="bg-red-500 p-2 sm:p-3 rounded-xl sm:rounded-2xl shadow-xl shadow-red-100 ring-4 ring-red-50 shrink-0">
+              <FileText className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
             </div>
-            <div>
-              <div className="flex items-center space-x-3 mb-1">
-                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black uppercase rounded-lg tracking-wider">Year {paper.year}</span>
-                <span className="text-slate-400 text-[11px] font-bold uppercase tracking-[0.2em]">{paper.degree}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center space-x-2 sm:space-x-3 mb-1 flex-wrap">
+                <span className="px-2 sm:px-3 py-1 bg-indigo-50 text-indigo-600 text-[9px] sm:text-[10px] font-black uppercase rounded-lg tracking-wider">Year {paper.year}</span>
+                <span className="text-slate-400 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em]">{paper.degree}</span>
               </div>
-              <h2 className="text-3xl font-black text-slate-900 leading-tight tracking-tight">{paper.subject}</h2>
-              <p className="text-slate-500 text-sm font-semibold flex items-center mt-0.5 uppercase tracking-wider">
-                <BookOpen className="h-4 w-4 mr-2 text-indigo-400" /> {paper.stream} • {paper.college}
+              <h2 className="text-xl sm:text-3xl font-black text-slate-900 leading-tight tracking-tight truncate">{paper.subject}</h2>
+              <p className="text-slate-500 text-xs sm:text-sm font-semibold flex items-center mt-0.5 uppercase tracking-wider truncate">
+                <BookOpen className="h-3 w-3 sm:h-4 sm:w-4 mr-2 text-indigo-400 shrink-0" /> <span className="truncate">{paper.stream} • {paper.college}</span>
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-3 bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-2xl transition-all duration-300 border border-slate-100 group">
-            <X className="h-6 w-6 text-slate-400 group-hover:text-red-500 transition-colors" />
-          </button>
+          
+          {/* Zoom Controls */}
+          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+            <div className="flex items-center bg-slate-50 rounded-xl sm:rounded-2xl border border-slate-100 overflow-hidden">
+              <button 
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= 50}
+                className="p-2 sm:p-3 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Zoom Out"
+              >
+                <ZoomOut className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+              <button 
+                onClick={handleZoomReset}
+                className="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-black text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-300 border-x border-slate-100"
+                title="Reset Zoom"
+              >
+                {zoomLevel}%
+              </button>
+              <button 
+                onClick={handleZoomIn}
+                disabled={zoomLevel >= 200}
+                className="p-2 sm:p-3 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Zoom In"
+              >
+                <ZoomIn className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            </div>
+            <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-xl sm:rounded-2xl transition-all duration-300 border border-slate-100 group shrink-0">
+              <X className="h-5 w-5 sm:h-6 sm:w-6 text-slate-400 group-hover:text-red-500 transition-colors" />
+            </button>
+          </div>
         </div>
         
         <div className="flex-grow bg-slate-50 relative overflow-hidden group/viewer">
@@ -280,48 +351,70 @@ const Modal = ({ isOpen, onClose, paper }) => {
               </div>
             </div>
           ) : (
-            <iframe 
-              ref={iframeRef}
-              src={(() => {
-                let pdfUrl = paper.content;
-                if (pdfUrl.startsWith('/')) {
-                  pdfUrl = (API_BASE_URL || window.location.origin) + pdfUrl;
-                }
-                return `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitV&zoom=page-width&page=1`;
-              })()}
-              className="w-full h-full border-none relative z-10 pointer-events-auto"
-              title={paper.fileName || 'PDF Document'}
-              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-              allow="fullscreen"
-              onError={() => {
-                console.error('PDF iframe error for:', paper.content);
-                setPdfError(true);
-              }}
-              onLoad={() => {
-                setPdfError(false);
-                // Auto-adjust PDF view on load
-                setTimeout(() => {
-                  try {
-                    if (iframeRef.current?.contentWindow) {
-                      // Auto-fit to page width
-                      iframeRef.current.contentWindow.postMessage({
-                        type: 'zoom',
-                        value: 'page-width'
-                      }, '*');
-                    }
-                  } catch (err) {
-                    // Silently handle cross-origin restrictions
+            <div className="w-full h-full overflow-auto relative" style={{ zoom: `${zoomLevel}%` }}>
+              <iframe 
+                ref={iframeRef}
+                src={(() => {
+                  let pdfUrl = paper.content;
+                  
+                  // Handle both relative paths and full URLs
+                  if (pdfUrl.startsWith('/')) {
+                    const baseUrl = API_BASE_URL || window.location.origin;
+                    pdfUrl = baseUrl + pdfUrl;
                   }
-                }, 800);
-              }}
-            />
+                  
+                  // Ensure URL is properly encoded for mobile browsers
+                  try {
+                    // Add PDF viewer parameters
+                    const urlObj = new URL(pdfUrl);
+                    urlObj.hash = 'toolbar=0&navpanes=0&scrollbar=1&view=FitV&zoom=page-width&page=1';
+                    return urlObj.toString();
+                  } catch (e) {
+                    // Fallback if URL parsing fails
+                    return `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitV&zoom=page-width&page=1`;
+                  }
+                })()}
+                className="w-full h-full border-none relative z-10 pointer-events-auto"
+                title={paper.fileName || 'PDF Document'}
+                style={{ 
+                  userSelect: 'none', 
+                  WebkitUserSelect: 'none',
+                  touchAction: 'pan-x pan-y pinch-zoom',
+                  minHeight: '100%',
+                  minWidth: '100%'
+                }}
+                allow="fullscreen"
+                loading="lazy"
+                onError={(e) => {
+                  console.error('PDF iframe error for:', paper.content, e);
+                  setPdfError(true);
+                }}
+                onLoad={() => {
+                  setPdfError(false);
+                  // Auto-adjust PDF view on load
+                  setTimeout(() => {
+                    try {
+                      if (iframeRef.current?.contentWindow) {
+                        // Auto-fit to page width
+                        iframeRef.current.contentWindow.postMessage({
+                          type: 'zoom',
+                          value: 'page-width'
+                        }, '*');
+                      }
+                    } catch (err) {
+                      // Silently handle cross-origin restrictions
+                    }
+                  }, 800);
+                }}
+              />
+            </div>
           )}
         </div>
 
-        <div className="p-8 border-t border-slate-100 bg-white flex justify-end items-center shrink-0">
+        <div className="p-4 sm:p-8 border-t border-slate-100 bg-white flex justify-end items-center shrink-0">
           <button 
             onClick={onClose}
-            className="px-10 py-4 bg-slate-900 text-white rounded-[1.2rem] text-xs font-black uppercase tracking-[0.2em] hover:bg-indigo-600 transition-all duration-300 shadow-2xl shadow-slate-200 active:scale-[0.98]"
+            className="w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-4 bg-slate-900 text-white rounded-xl sm:rounded-[1.2rem] text-xs font-black uppercase tracking-[0.2em] hover:bg-indigo-600 transition-all duration-300 shadow-2xl shadow-slate-200 active:scale-[0.98]"
           >
             Close Viewer
           </button>
