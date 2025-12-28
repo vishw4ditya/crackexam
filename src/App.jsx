@@ -17,10 +17,10 @@ const Footer = () => (
             <div className="bg-slate-900 p-2 rounded-xl">
               <Target className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-black tracking-tightest uppercase">CrackExam</span>
+            <span className="text-xl font-black tracking-tightest uppercase">KrackExam</span>
           </Link>
           <p className="text-slate-500 text-sm font-medium leading-relaxed">
-            The ultimate repository for university question papers. Empowering students with the tools they need to achieve academic excellence and crack every exam.
+            The ultimate repository for university question papers. Empowering students with the tools they need to achieve academic excellence and krack every exam.
           </p>
           <div className="flex items-center space-x-4">
             <a href="https://www.instagram.com/webaura_3/" className="p-2.5 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-300">
@@ -66,7 +66,7 @@ const Footer = () => (
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Email Support</p>
-                <a href="mailto:support@crackexam.com" className="text-slate-900 font-bold text-sm hover:text-indigo-600 transition-colors">webauracompany@gmail.com</a>
+                <a href="mailto:support@krackexam.com" className="text-slate-900 font-bold text-sm hover:text-indigo-600 transition-colors">webauracompany@gmail.com</a>
               </div>
             </div>
             <div className="flex items-start space-x-4">
@@ -84,7 +84,7 @@ const Footer = () => (
 
       <div className="pt-10 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-6">
         <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
-          © {new Date().getFullYear()} CrackExam Technologies. All Rights Reserved.
+          © {new Date().getFullYear()} KrackExam Technologies. All Rights Reserved.
         </p>
         <div className="flex items-center space-x-6 text-slate-400 text-[10px] font-black uppercase tracking-widest">
           <a href="#" className="hover:text-indigo-600 transition-colors">Status: Operational</a>
@@ -102,7 +102,6 @@ const Footer = () => (
 const Modal = ({ isOpen, onClose, paper }) => {
   const [pdfError, setPdfError] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [isFocused, setIsFocused] = useState(true);
   const iframeRef = useRef(null);
   const modalRef = useRef(null);
 
@@ -110,7 +109,6 @@ const Modal = ({ isOpen, onClose, paper }) => {
   useEffect(() => {
     setPdfError(false);
     setZoomLevel(100);
-    setIsFocused(true);
   }, [paper]);
 
   const handleZoomIn = () => {
@@ -124,31 +122,6 @@ const Modal = ({ isOpen, onClose, paper }) => {
   const handleZoomReset = () => {
     setZoomLevel(100);
   };
-
-  // Screenshot prevention: Window focus/blur detection
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleFocus = () => setIsFocused(true);
-    const handleBlur = () => setIsFocused(false);
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setIsFocused(false);
-      } else {
-        setIsFocused(true);
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('blur', handleBlur);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('blur', handleBlur);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isOpen]);
 
   // Screenshot prevention: Block keyboard shortcuts
   useEffect(() => {
@@ -318,14 +291,14 @@ const Modal = ({ isOpen, onClose, paper }) => {
   if (!isOpen || !paper) return null;
 
   // Generate watermark text with current date
-  const watermarkText = `CrackExam • ${new Date().toLocaleDateString()} • Confidential`;
+  const watermarkText = `KrackExam • ${new Date().toLocaleDateString()} • Confidential`;
   const userInfo = `Viewer: ${navigator.userAgent.substring(0, 50)}...`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
       <div 
         ref={modalRef}
-        className={`bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[98vh] sm:h-[95vh] relative transition-all duration-500 ${!isFocused ? 'blur-sm' : ''}`}
+        className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[98vh] sm:h-[95vh] relative transition-all duration-500"
       >
 
         <div className="p-4 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white shrink-0 relative z-[70]">
@@ -420,20 +393,6 @@ const Modal = ({ isOpen, onClose, paper }) => {
             </div>
           </div>
 
-          {/* Security overlay when window loses focus */}
-          {!isFocused && (
-            <div className="absolute inset-0 z-[20] flex items-center justify-center bg-white/95 backdrop-blur-md">
-              <div className="text-center p-8">
-                <ShieldCheck className="h-16 w-16 text-red-500 mx-auto mb-4 animate-pulse" />
-                <p className="text-slate-900 font-black text-lg sm:text-xl uppercase tracking-widest mb-2">
-                  Content Hidden for Security
-                </p>
-                <p className="text-slate-500 text-sm font-semibold">
-                  Return to this window to continue viewing
-                </p>
-              </div>
-            </div>
-          )}
 
           {pdfError ? (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white">
@@ -539,7 +498,7 @@ const Navbar = ({ admin, onLogout }) => (
           </div>
           <div className="flex flex-col -space-y-1">
             <span className="text-2xl font-[900] tracking-tightest bg-gradient-to-br from-slate-900 via-indigo-950 to-indigo-600 bg-clip-text text-transparent">
-              CrackExam
+              KrackExam
             </span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Smart Prep</span>
           </div>
@@ -623,7 +582,7 @@ const Home = () => {
             <span>Smart Exam Preparation Platform</span>
           </div>
           <h1 className="text-6xl md:text-8xl lg:text-9xl font-black text-slate-900 mb-8 tracking-tightest leading-[0.85] uppercase">
-            Crack Your <br/>
+            Krack Your <br/>
             <span className="bg-gradient-to-r from-indigo-600 via-indigo-900 to-slate-900 bg-clip-text text-transparent italic">
               Exams Fast.
             </span>
@@ -1352,7 +1311,7 @@ const HelpCenter = () => {
               <h3 className="text-2xl font-black uppercase tracking-tightest mb-4">Direct Support</h3>
               <p className="text-slate-400 font-medium text-sm mb-8">Need immediate assistance or have a technical issue?</p>
               <div className="flex items-center space-x-6">
-                <a href="mailto:support@crackexam.com" className="flex items-center text-xs font-black uppercase tracking-[0.2em] hover:text-indigo-400 transition-colors">
+                <a href="mailto:support@krackexam.com" className="flex items-center text-xs font-black uppercase tracking-[0.2em] hover:text-indigo-400 transition-colors">
                   <Mail className="h-4 w-4 mr-2" /> Email Us
                 </a>
                 <div className="h-4 w-px bg-white/20"></div>

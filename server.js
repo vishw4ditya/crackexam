@@ -239,7 +239,7 @@ Additional Details:
 ${message || 'No additional details provided.'}
 
 ---
-This request was submitted through CrackExam Help Center.
+This request was submitted through KrackExam Help Center.
     `.trim();
 
     // Check if email credentials are configured
@@ -276,7 +276,7 @@ This request was submitted through CrackExam Help Center.
             </div>
             ${message ? `<div style="margin-top: 20px;"><strong>Additional Details:</strong><p>${message.replace(/\n/g, '<br>')}</p></div>` : ''}
             <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
-            <p style="color: #64748b; font-size: 12px;">This request was submitted through CrackExam Help Center.</p>
+            <p style="color: #64748b; font-size: 12px;">This request was submitted through KrackExam Help Center.</p>
           </div>
         `
       };
