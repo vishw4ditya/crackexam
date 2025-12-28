@@ -9,6 +9,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
 import https from 'https';
 import http from 'http';
+import nodemailer from 'nodemailer';
 
 dotenv.config();
 
@@ -210,6 +211,86 @@ app.delete('/api/papers/:id', async (req, res) => {
   res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Email sending endpoint for paper requests
+app.post('/api/send-email', async (req, res) => {
+  try {
+    const { college, degree, stream, subject, year, email, message } = req.body;
+
+    // Validate required fields
+    if (!college || !degree || !stream || !subject || !email) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const emailSubject = `New Paper Request: ${subject}`;
+    const emailBody = `
+New Resource Request Details:
+----------------------------
+Institution: ${college}
+Degree: ${degree}
+Course Stream: ${stream}
+Subject: ${subject}
+Academic Year: ${year}
+Student Email: ${email}
+
+Additional Details:
+${message || 'No additional details provided.'}
+
+---
+This request was submitted through CrackExam Help Center.
+    `.trim();
+
+    // Check if email credentials are configured
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
+    const recipientEmail = process.env.RECIPIENT_EMAIL || 'webauracompany@gmail.com';
+
+    if (emailUser && emailPass) {
+      // Use nodemailer to send email
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: emailUser,
+          pass: emailPass
+        }
+      });
+
+      const mailOptions = {
+        from: emailUser,
+        to: recipientEmail,
+        replyTo: email,
+        subject: emailSubject,
+        text: emailBody,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #4f46e5;">New Paper Request</h2>
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p><strong>Institution:</strong> ${college}</p>
+              <p><strong>Degree:</strong> ${degree}</p>
+              <p><strong>Course Stream:</strong> ${stream}</p>
+              <p><strong>Subject:</strong> ${subject}</p>
+              <p><strong>Academic Year:</strong> ${year}</p>
+              <p><strong>Student Email:</strong> <a href="mailto:${email}">${email}</a></p>
+            </div>
+            ${message ? `<div style="margin-top: 20px;"><strong>Additional Details:</strong><p>${message.replace(/\n/g, '<br>')}</p></div>` : ''}
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
+            <p style="color: #64748b; font-size: 12px;">This request was submitted through CrackExam Help Center.</p>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+      res.json({ success: true, message: 'Email sent successfully' });
+    } else {
+      // If email credentials are not configured, return mailto link
+      const mailtoUrl = `mailto:${recipientEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+      res.json({ success: true, mailto: mailtoUrl, message: 'Email credentials not configured. Use mailto link.' });
+    }
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).json({ error: 'Failed to send email', details: error.message });
   }
 });
 

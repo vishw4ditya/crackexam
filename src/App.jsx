@@ -1250,32 +1250,36 @@ const HelpCenter = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    const subject = `New Paper Request: ${formData.subject}`;
-    const body = `
-New Resource Request Details:
-----------------------------
-Institution: ${formData.college}
-Degree: ${formData.degree}
-Course Stream: ${formData.stream}
-Subject: ${formData.subject}
-Academic Year: ${formData.year}
-Student Email: ${formData.email}
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      });
 
-Additional Details:
-${formData.message || 'No additional details provided.'}
-    `.trim();
+      const data = await response.json();
 
-    const mailtoUrl = `mailto:webauracomapny@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    
-    // Open the user's email client
-    window.location.href = mailtoUrl;
-
-    // Show the success screen after a short delay
-    setTimeout(() => {
+      if (response.ok) {
+        // If email was sent successfully or mailto link is returned
+        if (data.mailto) {
+          // Fallback: open mailto link if email service not configured
+          window.location.href = data.mailto;
+        }
+        
+        // Show success screen
+        setIsSubmitting(false);
+        setSubmitted(true);
+        setFormData({ college: '', degree: '', stream: '', subject: '', year: '1', email: '', message: '' });
+      } else {
+        throw new Error(data.error || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error submitting request:', error);
       setIsSubmitting(false);
-      setSubmitted(true);
-      setFormData({ college: '', degree: '', stream: '', subject: '', year: '1', email: '', message: '' });
-    }, 1000);
+      alert('Failed to send request. Please try again or contact us directly at webauracompany@gmail.com');
+    }
   };
 
   if (submitted) {
@@ -1290,8 +1294,8 @@ ${formData.message || 'No additional details provided.'}
           
           <h2 className="text-5xl font-black text-slate-900 tracking-tightest uppercase mb-6">Request Transmitted</h2>
           <p className="text-slate-500 font-medium text-lg mb-12 leading-relaxed">
-            Your request has been prepared for delivery to our curators. 
-            If your email client didn't open automatically, please contact us at <b>webauracomapny@gmail.com</b>.
+            Your request has been sent successfully to our curators. 
+            If you need immediate assistance, please contact us at <b>webauracompany@gmail.com</b>.
           </p>
           
           <button 
