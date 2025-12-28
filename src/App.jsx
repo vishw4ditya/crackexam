@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
-import { Search, Plus, BookOpen, LogOut, GraduationCap, School, Layers, Calendar, Trash2, X, ExternalLink, Download, FileText, FileUp, AlertCircle, Target, Zap, ShieldCheck, ArrowRight, User, Instagram, Twitter, Linkedin, Facebook, Mail, MapPin, Github, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { Search, Plus, BookOpen, LogOut, GraduationCap, School, Layers, Calendar, Trash2, X, ExternalLink, Download, FileText, FileUp, AlertCircle, Target, Zap, ShieldCheck, ArrowRight, User, Instagram, Twitter, Linkedin, Facebook, Mail, MapPin, Github, ZoomIn, ZoomOut, Maximize2, Edit2 } from 'lucide-react';
 
 // Use dynamic API URL: empty string in production (same domain), localhost in development
 const API_BASE_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : '';
@@ -549,22 +549,45 @@ const Home = () => {
   };
 
   const filteredPapers = papers.filter(p => {
-    const matchesSearch = p.college.toLowerCase().includes(search.toLowerCase()) || 
-                          p.degree.toLowerCase().includes(search.toLowerCase()) ||
+    const matchesSearch = p.college?.toLowerCase().includes(search.toLowerCase()) || 
+                          p.degree?.toLowerCase().includes(search.toLowerCase()) ||
                           p.subject?.toLowerCase().includes(search.toLowerCase()) ||
-                          p.stream.toLowerCase().includes(search.toLowerCase());
-    const matchesCollege = !filter.college || p.college === filter.college;
-    const matchesDegree = !filter.degree || p.degree === filter.degree;
-    const matchesStream = !filter.stream || p.stream === filter.stream;
-    const matchesSubject = !filter.subject || p.subject === filter.subject;
+                          p.stream?.toLowerCase().includes(search.toLowerCase());
+    // Case-insensitive and trim-aware comparison to handle variations
+    const normalize = (val) => val?.trim().toLowerCase() || '';
+    const matchesCollege = !filter.college || normalize(p.college) === normalize(filter.college);
+    const matchesDegree = !filter.degree || normalize(p.degree) === normalize(filter.degree);
+    const matchesStream = !filter.stream || normalize(p.stream) === normalize(filter.stream);
+    const matchesSubject = !filter.subject || normalize(p.subject) === normalize(filter.subject);
     const matchesYear = !filter.year || p.year === filter.year;
     return matchesSearch && matchesCollege && matchesDegree && matchesStream && matchesSubject && matchesYear;
   });
 
-  const uniqueColleges = [...new Set(papers.map(p => p.college))];
-  const uniqueDegrees = [...new Set(papers.map(p => p.degree))];
-  const uniqueStreams = [...new Set(papers.map(p => p.stream))];
-  const uniqueSubjects = [...new Set(papers.map(p => p.subject).filter(Boolean))];
+  // Get unique values, handling duplicates with different case or whitespace
+  // Use a Map to track normalized values and keep the first occurrence
+  // This ensures each degree/college/stream/subject appears only once in filters
+  const getUniqueValues = (items, getValue) => {
+    const seen = new Map();
+    items.forEach(item => {
+      const value = getValue(item);
+      // Filter out null, undefined, and empty strings
+      if (value && typeof value === 'string' && value.trim().length > 0) {
+        const trimmed = value.trim();
+        const normalized = trimmed.toLowerCase();
+        // Only add if we haven't seen this normalized value before
+        if (!seen.has(normalized)) {
+          seen.set(normalized, trimmed);
+        }
+      }
+    });
+    return Array.from(seen.values()).sort();
+  };
+
+  // Get unique values for filters - each appears only once even if multiple papers have the same value
+  const uniqueColleges = getUniqueValues(papers, p => p.college);
+  const uniqueDegrees = getUniqueValues(papers, p => p.degree);
+  const uniqueStreams = getUniqueValues(papers, p => p.stream);
+  const uniqueSubjects = getUniqueValues(papers, p => p.subject);
 
   return (
     <div className="min-h-screen pb-32">
@@ -872,6 +895,10 @@ const AdminDashboard = ({ admin }) => {
   const [formData, setFormData] = useState({ college: '', degree: '', stream: '', subject: '', year: '1', content: '', fileName: '' });
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [editingPaper, setEditingPaper] = useState(null);
+  const [editFormData, setEditFormData] = useState({ college: '', degree: '', stream: '', subject: '', year: '1' });
+  const [editFile, setEditFile] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -958,6 +985,70 @@ const AdminDashboard = ({ admin }) => {
       } catch (error) {
         console.error('Delete operation failed:', error);
       }
+    }
+  };
+
+  const handleEdit = (paper) => {
+    setEditingPaper(paper);
+    setEditFormData({
+      college: paper.college || '',
+      degree: paper.degree || '',
+      stream: paper.stream || '',
+      subject: paper.subject || '',
+      year: paper.year || '1'
+    });
+    setEditFile(null);
+  };
+
+  const handleEditFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      if (selectedFile.type !== 'application/pdf') {
+        alert('Please upload a PDF file only.');
+        e.target.value = '';
+        return;
+      }
+      setEditFile(selectedFile);
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editingPaper) return;
+
+    setIsUpdating(true);
+    const data = new FormData();
+    data.append('college', editFormData.college);
+    data.append('degree', editFormData.degree);
+    data.append('stream', editFormData.stream);
+    data.append('subject', editFormData.subject);
+    data.append('year', editFormData.year);
+    
+    if (editFile) {
+      data.append('pdf', editFile);
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/papers/${editingPaper.id}`, {
+        method: 'PUT',
+        body: data,
+      });
+
+      if (response.ok) {
+        alert('SYSTEM NOTIFICATION: RECORD UPDATE COMPLETE.');
+        setEditingPaper(null);
+        setEditFormData({ college: '', degree: '', stream: '', subject: '', year: '1' });
+        setEditFile(null);
+        if (document.getElementById('edit-pdf-upload')) document.getElementById('edit-pdf-upload').value = '';
+        fetchPapers();
+      } else {
+        const err = await response.json();
+        alert('System Error: ' + err.error);
+      }
+    } catch (error) {
+      alert('Network transmission failed. Verify server status.');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -1139,13 +1230,22 @@ const AdminDashboard = ({ admin }) => {
                     </p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleDelete(p.id)}
-                  className="p-5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-[1.6rem] transition-all duration-300 border border-transparent hover:border-red-100 group-hover:scale-110"
-                  title="Purge Record"
-                >
-                  <Trash2 className="h-7 w-7" />
-                </button>
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={() => handleEdit(p)}
+                    className="p-5 text-slate-200 hover:text-indigo-600 hover:bg-indigo-50 rounded-[1.6rem] transition-all duration-300 border border-transparent hover:border-indigo-100 group-hover:scale-110"
+                    title="Edit Record"
+                  >
+                    <Edit2 className="h-7 w-7" />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(p.id)}
+                    className="p-5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-[1.6rem] transition-all duration-300 border border-transparent hover:border-red-100 group-hover:scale-110"
+                    title="Purge Record"
+                  >
+                    <Trash2 className="h-7 w-7" />
+                  </button>
+                </div>
               </div>
             ))}
             {papers.length === 0 && (
@@ -1159,6 +1259,122 @@ const AdminDashboard = ({ admin }) => {
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingPaper && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3.5rem] shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 border border-white/20 relative">
+            <div className="sticky top-0 bg-white p-8 border-b border-slate-100 flex justify-between items-center z-10">
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tightest uppercase mb-2">Edit Record</h2>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">{editingPaper.subject}</p>
+              </div>
+              <button 
+                onClick={() => setEditingPaper(null)}
+                className="p-3 bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-2xl transition-all duration-300 border border-slate-100"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdate} className="p-8 space-y-7">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Institution</label>
+                <input 
+                  className="w-full p-5.5 rounded-[1.4rem] bg-slate-50 border border-slate-100 outline-none focus:ring-0 focus:border-indigo-600/20 focus:bg-white transition-all duration-500 font-bold text-slate-900 placeholder:text-slate-300"
+                  required 
+                  value={editFormData.college}
+                  onChange={(e) => setEditFormData(prev => ({...prev, college: e.target.value}))}
+                  placeholder="E.G. CAMBRIDGE"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Degree</label>
+                  <input 
+                    className="w-full p-5.5 rounded-[1.4rem] bg-slate-50 border border-slate-100 outline-none focus:ring-0 focus:border-indigo-600/20 focus:bg-white transition-all duration-500 font-bold text-slate-900 placeholder:text-slate-300"
+                    required 
+                    value={editFormData.degree}
+                    onChange={(e) => setEditFormData(prev => ({...prev, degree: e.target.value}))}
+                    placeholder="B.S"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Year</label>
+                  <select 
+                    className="w-full p-5.5 rounded-[1.4rem] bg-slate-50 border border-slate-100 outline-none focus:ring-0 focus:border-indigo-600/20 focus:bg-white transition-all duration-500 font-black text-slate-900 appearance-none cursor-pointer"
+                    value={editFormData.year}
+                    onChange={(e) => setEditFormData(prev => ({...prev, year: e.target.value}))}
+                  >
+                    <option value="1">Y-1</option>
+                    <option value="2">Y-2</option>
+                    <option value="3">Y-3</option>
+                    <option value="4">Y-4</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Course Stream</label>
+                <input 
+                  className="w-full p-5.5 rounded-[1.4rem] bg-slate-50 border border-slate-100 outline-none focus:ring-0 focus:border-indigo-600/20 focus:bg-white transition-all duration-500 font-bold text-slate-900 placeholder:text-slate-300"
+                  required 
+                  value={editFormData.stream}
+                  onChange={(e) => setEditFormData(prev => ({...prev, stream: e.target.value}))}
+                  placeholder="E.G. QUANTUM PHYSICS"
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Subject Name</label>
+                <input 
+                  className="w-full p-5.5 rounded-[1.4rem] bg-slate-50 border border-slate-100 outline-none focus:ring-0 focus:border-indigo-600/20 focus:bg-white transition-all duration-500 font-bold text-slate-900 placeholder:text-slate-300"
+                  required 
+                  value={editFormData.subject}
+                  onChange={(e) => setEditFormData(prev => ({...prev, subject: e.target.value}))}
+                  placeholder="E.G. ADVANCED CALCULUS"
+                />
+              </div>
+              
+              <div className="space-y-3 pt-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-4">Update PDF (Optional)</label>
+                <div className="relative group/upload">
+                  <input 
+                    id="edit-pdf-upload"
+                    type="file" 
+                    accept="application/pdf"
+                    onChange={handleEditFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="w-full p-8 rounded-[2rem] border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center transition-all duration-500 group-hover/upload:border-indigo-400 group-hover/upload:bg-indigo-50/30">
+                    <div className="bg-white p-3 rounded-xl shadow-sm mb-4 ring-1 ring-slate-100">
+                      <FileUp className={`h-6 w-6 ${editFile ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] px-4 text-center">
+                      {editFile ? editFile.name : 'CLICK TO UPDATE PDF (OPTIONAL)'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setEditingPaper(null)}
+                  className="flex-1 py-6 bg-slate-100 text-slate-600 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all duration-500 hover:bg-slate-200"
+                >
+                  CANCEL
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isUpdating}
+                  className={`flex-1 py-6 bg-slate-900 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] transition-all duration-500 shadow-2xl shadow-slate-200 ${isUpdating ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-600 hover:shadow-indigo-200'}`}
+                >
+                  {isUpdating ? 'UPDATING...' : 'UPDATE RECORD'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

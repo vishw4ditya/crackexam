@@ -195,6 +195,72 @@ app.post('/api/papers', upload.single('pdf'), async (req, res) => {
   }
 });
 
+app.put('/api/papers/:id', upload.single('pdf'), async (req, res) => {
+  try {
+    const paper = await Paper.findById(req.params.id);
+    if (!paper) {
+      return res.status(404).json({ error: 'Paper not found' });
+    }
+
+    const { college, degree, stream, subject, year } = req.body;
+    let cloudinaryUrl = paper.content;
+    let cloudinaryPublicId = paper.cloudinaryPublicId;
+    let fileName = paper.fileName;
+
+    // If a new PDF file is uploaded, replace the old one
+    if (req.file) {
+      fileName = req.file.originalname;
+      
+      // Delete old PDF from Cloudinary if it exists
+      if (paper.cloudinaryPublicId) {
+        try {
+          await cloudinary.uploader.destroy(paper.cloudinaryPublicId, { resource_type: 'raw' });
+        } catch (error) {
+          console.error('Error deleting old PDF from Cloudinary:', error);
+          // Continue even if deletion fails
+        }
+      }
+
+      // Upload new PDF to Cloudinary
+      const result = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            resource_type: 'raw',
+            folder: 'crackexam_pdfs'
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(req.file.buffer);
+      });
+
+      cloudinaryUrl = result.secure_url;
+      cloudinaryPublicId = result.public_id;
+    }
+
+    // Update paper fields
+    paper.college = college;
+    paper.degree = degree;
+    paper.stream = stream;
+    paper.subject = subject;
+    paper.year = year;
+    paper.content = cloudinaryUrl;
+    paper.cloudinaryPublicId = cloudinaryPublicId;
+    paper.fileName = fileName;
+
+    await paper.save();
+
+    res.json({
+      ...paper.toObject(),
+      id: paper._id
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.delete('/api/papers/:id', async (req, res) => {
   try {
     const paper = await Paper.findById(req.params.id);
