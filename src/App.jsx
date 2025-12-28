@@ -102,12 +102,15 @@ const Footer = () => (
 const Modal = ({ isOpen, onClose, paper }) => {
   const [pdfError, setPdfError] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [isFocused, setIsFocused] = useState(true);
   const iframeRef = useRef(null);
+  const modalRef = useRef(null);
 
   // Reset error state and zoom when paper changes
   useEffect(() => {
     setPdfError(false);
     setZoomLevel(100);
+    setIsFocused(true);
   }, [paper]);
 
   const handleZoomIn = () => {
@@ -121,6 +124,164 @@ const Modal = ({ isOpen, onClose, paper }) => {
   const handleZoomReset = () => {
     setZoomLevel(100);
   };
+
+  // Screenshot prevention: Window focus/blur detection
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleFocus = () => setIsFocused(true);
+    const handleBlur = () => setIsFocused(false);
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsFocused(false);
+      } else {
+        setIsFocused(true);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isOpen]);
+
+  // Screenshot prevention: Block keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const preventDefaults = (e) => {
+      // Block PrintScreen, Ctrl+P (Print), Ctrl+S (Save), Ctrl+C (Copy), F12 (DevTools)
+      if (
+        e.key === 'PrintScreen' ||
+        (e.ctrlKey && (e.key === 'p' || e.key === 'P' || e.key === 's' || e.key === 'S' || e.key === 'c' || e.key === 'C')) ||
+        e.key === 'F12' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C'))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      preventDefaults(e);
+    };
+
+    const handleKeyUp = (e) => {
+      preventDefaults(e);
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keyup', handleKeyUp, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keyup', handleKeyUp, true);
+    };
+  }, [isOpen]);
+
+  // Screenshot prevention: Disable right-click
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu, true);
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu, true);
+    };
+  }, [isOpen]);
+
+  // Screenshot prevention: Disable text selection
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const preventSelect = (e) => {
+      e.preventDefault();
+      return false;
+    };
+
+    const handleSelectStart = (e) => preventSelect(e);
+    const handleDragStart = (e) => preventSelect(e);
+
+    document.addEventListener('selectstart', handleSelectStart, true);
+    document.addEventListener('dragstart', handleDragStart, true);
+
+    // Disable text selection via CSS
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+    document.body.style.mozUserSelect = 'none';
+    document.body.style.msUserSelect = 'none';
+
+    return () => {
+      document.removeEventListener('selectstart', handleSelectStart, true);
+      document.removeEventListener('dragstart', handleDragStart, true);
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+      document.body.style.mozUserSelect = '';
+      document.body.style.msUserSelect = '';
+    };
+  }, [isOpen]);
+
+  // Screenshot prevention: Block copy/cut
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleCopy = (e) => {
+      e.preventDefault();
+      e.clipboardData.setData('text/plain', '');
+      return false;
+    };
+
+    const handleCut = (e) => {
+      e.preventDefault();
+      e.clipboardData.setData('text/plain', '');
+      return false;
+    };
+
+    document.addEventListener('copy', handleCopy, true);
+    document.addEventListener('cut', handleCut, true);
+
+    return () => {
+      document.removeEventListener('copy', handleCopy, true);
+      document.removeEventListener('cut', handleCut, true);
+    };
+  }, [isOpen]);
+
+  // Screenshot prevention: Mobile gesture blocking
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [isOpen]);
 
   // Auto-configure PDF view settings
   useEffect(() => {
@@ -148,9 +309,16 @@ const Modal = ({ isOpen, onClose, paper }) => {
 
   if (!isOpen || !paper) return null;
 
+  // Generate watermark text with current date
+  const watermarkText = `CrackExam • ${new Date().toLocaleDateString()} • Confidential`;
+  const userInfo = `Viewer: ${navigator.userAgent.substring(0, 50)}...`;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[98vh] sm:h-[95vh] relative transition-all duration-500">
+      <div 
+        ref={modalRef}
+        className={`bg-white rounded-[1.5rem] sm:rounded-[2.5rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in-95 border border-white/20 flex flex-col h-[98vh] sm:h-[95vh] relative transition-all duration-500 ${!isFocused ? 'blur-sm' : ''}`}
+      >
 
         <div className="p-4 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white shrink-0 relative z-[70]">
           <div className="flex items-center space-x-3 sm:space-x-5 flex-1 min-w-0">
@@ -206,6 +374,58 @@ const Modal = ({ isOpen, onClose, paper }) => {
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] z-0">
             <Target className="w-96 h-96 text-indigo-900 rotate-12" />
           </div>
+
+          {/* Watermark Overlays - Multiple layers for protection */}
+          <div className="absolute inset-0 pointer-events-none z-[15] overflow-hidden">
+            {/* Rotated watermark layer 1 */}
+            <div 
+              className="absolute top-1/4 left-0 w-full text-slate-300 text-[8px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap opacity-20"
+              style={{ 
+                transform: 'rotate(-45deg)',
+                transformOrigin: 'center',
+                fontSize: 'clamp(8px, 1.5vw, 12px)'
+              }}
+            >
+              {watermarkText} • {watermarkText} • {watermarkText} • {watermarkText} • {watermarkText}
+            </div>
+            {/* Rotated watermark layer 2 */}
+            <div 
+              className="absolute top-1/2 left-0 w-full text-slate-300 text-[8px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap opacity-20"
+              style={{ 
+                transform: 'rotate(45deg)',
+                transformOrigin: 'center',
+                fontSize: 'clamp(8px, 1.5vw, 12px)'
+              }}
+            >
+              {watermarkText} • {watermarkText} • {watermarkText} • {watermarkText} • {watermarkText}
+            </div>
+            {/* Rotated watermark layer 3 */}
+            <div 
+              className="absolute top-3/4 left-0 w-full text-slate-300 text-[8px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap opacity-20"
+              style={{ 
+                transform: 'rotate(-30deg)',
+                transformOrigin: 'center',
+                fontSize: 'clamp(8px, 1.5vw, 12px)'
+              }}
+            >
+              {userInfo} • {userInfo} • {userInfo} • {userInfo} • {userInfo}
+            </div>
+          </div>
+
+          {/* Security overlay when window loses focus */}
+          {!isFocused && (
+            <div className="absolute inset-0 z-[20] flex items-center justify-center bg-white/95 backdrop-blur-md">
+              <div className="text-center p-8">
+                <ShieldCheck className="h-16 w-16 text-red-500 mx-auto mb-4 animate-pulse" />
+                <p className="text-slate-900 font-black text-lg sm:text-xl uppercase tracking-widest mb-2">
+                  Content Hidden for Security
+                </p>
+                <p className="text-slate-500 text-sm font-semibold">
+                  Return to this window to continue viewing
+                </p>
+              </div>
+            </div>
+          )}
 
           {pdfError ? (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white">
