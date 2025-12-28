@@ -78,7 +78,7 @@ app.get('/api/pdf', async (req, res) => {
     
     if (!publicId) {
       return res.status(400).json({ error: 'Public ID is required' });
-    }
+  }
 
     // Decode the public ID (it may be URL-encoded)
     const decodedPublicId = decodeURIComponent(publicId);
@@ -207,7 +207,7 @@ app.delete('/api/papers/:id', async (req, res) => {
     }
 
     await Paper.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
+  res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

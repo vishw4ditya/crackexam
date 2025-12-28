@@ -258,24 +258,32 @@ const Modal = ({ isOpen, onClose, paper }) => {
     };
   }, [isOpen]);
 
-  // Screenshot prevention: Mobile gesture blocking
+  // Screenshot prevention: Mobile gesture blocking (only block multi-touch, allow single-finger scrolling)
   useEffect(() => {
     if (!isOpen) return;
 
     const handleTouchStart = (e) => {
+      // Only prevent multi-touch gestures (pinch zoom), allow single-finger scrolling
       if (e.touches.length > 1) {
         e.preventDefault();
+        e.stopPropagation();
+        return false;
       }
     };
 
     const handleTouchMove = (e) => {
+      // Only prevent multi-touch gestures, allow single-finger scrolling
       if (e.touches.length > 1) {
         e.preventDefault();
+        e.stopPropagation();
+        return false;
       }
     };
 
-    document.addEventListener('touchstart', handleTouchStart, { passive: false });
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    // Use passive: false only for multi-touch detection, single-finger scrolling will work normally
+    // We need preventDefault to work, so we can't use passive: true
+    document.addEventListener('touchstart', handleTouchStart, { passive: false, capture: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false, capture: false });
 
     return () => {
       document.removeEventListener('touchstart', handleTouchStart);
@@ -451,7 +459,16 @@ const Modal = ({ isOpen, onClose, paper }) => {
               </div>
             </div>
           ) : (
-            <div className="w-full h-full overflow-auto relative" style={{ zoom: `${zoomLevel}%` }}>
+            <div 
+              className="w-full h-full overflow-auto relative" 
+              style={{ 
+                zoom: `${zoomLevel}%`,
+                WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+                overflowX: 'auto',
+                overflowY: 'auto',
+                scrollBehavior: 'smooth'
+              }}
+            >
               <iframe 
                 ref={iframeRef}
                 src={(() => {
@@ -471,17 +488,20 @@ const Modal = ({ isOpen, onClose, paper }) => {
                     return pdfUrl;
                   }
                   
-                  // Desktop: Return URL with PDF viewer parameters
+                  // Desktop: Return URL with PDF viewer parameters - ensure scrolling is enabled
                   return `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitV&zoom=page-width&page=1`;
                 })()}
                 className="w-full h-full border-none relative z-10 pointer-events-auto"
                 title={paper.fileName || 'PDF Document'}
                 style={{ 
-                  touchAction: 'pan-x pan-y pinch-zoom',
+                  touchAction: 'pan-x pan-y', // Allow panning (scrolling), but limit pinch-zoom
                   minHeight: '100%',
                   minWidth: '100%',
-                  display: 'block'
+                  display: 'block',
+                  overflow: 'auto',
+                  WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
                 }}
+                scrolling="yes"
                 allow="fullscreen"
                 allowFullScreen
                 onError={(e) => {
